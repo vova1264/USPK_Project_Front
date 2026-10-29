@@ -1,32 +1,23 @@
 import { useState, useEffect } from 'react';
 import Login from './Views/Account/Login';
 import Register from './Views/Account/Register';
+import Reset from './Views/Account/Reset';
 import Home from './Views/Home/Index';
 import Support from './Views/Support/Support';
 import Help from './Views/Support/Help';
 import Dashboard from './Views/Admin/Dashboard';
 import UserList from './Views/Admin/UserList';
+import AllNews from './Views/News/AllNews';
 import Navbar from './Views/Shared/Navbar';
 import Footer from './Views/Shared/Footer';
+import NonExistent from './Views/Shared/NonExistent';
 import GroupsPage from './Views/Schedule/GroupsPage';
 import TeachersPage from './Views/Schedule/TeachersPage';
-import { processDocFile } from './utils/parser';
-import { findDocFiles } from './utils/loadDocs';
+import ScheduleAdmin from './Views/Schedule/ScheduleAdmin';
+import { processDocFile, processWeekDocFile } from './utils/parser';
+import { findDocFiles, parseDocMeta, normalizeDocUrl, mapDaysToDates } from './utils/loadDocs';
 import { authService } from './Services/authService';
 import { userApi } from './Services/userApi';
-
-// Функция для извлечения даты из имени файла
-const extractDateFromFilename = (filename) => {
-    const match = filename.match(/(\d{2})\.(\d{2})\.(\d{2,4})/);
-    if (match) {
-        let [, day, month, year] = match;
-        if (year.length === 2) {
-            year = `20${year}`;
-        }
-        return `${year}-${month}-${day}`;
-    }
-    return new Date().toISOString().split('T')[0];
-};
 
 function App() {
     const [currentUser, setCurrentUser] = useState(authService.getCurrentUser());
@@ -116,114 +107,127 @@ function App() {
 
     // ✅ ПАРСИНГ РАСПИСАНИЯ (запускается только на вкладках groups/teachers)
     useEffect(() => {
-        // Не запускаем парсинг, если мы не на вкладках расписания
         if (currentView !== 'groups' && currentView !== 'teachers') {
-            return;
-        }
-
-        // Если данные уже загружены, повторно не парсим
-        if (scheduleData.groups.length > 0) {
             return;
         }
 
         const loadAllDocs = async () => {
             setIsLoading(true);
+            setError(null);
+            // Очищаем старые данные перед новым парсингом
+            setScheduleData({ groups: [], teachers: [] });
+
             try {
                 const docFiles = await findDocFiles();
-                console.log("Найденные файлы:", docFiles);
+                console.log("📂 Найденные файлы:", docFiles);
 
-                const filteredDocFiles = docFiles.filter(({ name }) => {
-                    return !name.startsWith('~$') && !name.includes('~$');
+                const filteredDocFiles = docFiles.filter((file) => {
+                    const fileName = file.Name || file.name;
+                    return fileName && !fileName.includes('~$');
                 });
 
                 if (filteredDocFiles.length === 0) {
-                    setError("Файлы расписания не найдены. Проверьте public/docs/docs.json.");
-                    setIsLoading(false);
+                    setError("Файлы расписания не найдены.");
                     return;
                 }
 
-                let allParsedGroups = {};
+                const allParsedGroups = {};
 
-                for (const { name, url } of filteredDocFiles) {
-                    console.log("▶ Обработка файла:", name);
-                    const dateString = extractDateFromFilename(name);
+                for (const file of filteredDocFiles) {
+                    const fileName = file.Name || file.name;
+                    const fileUrl = normalizeDocUrl(file.Url || file.url, fileName);
+                    const meta = parseDocMeta(fileName);
 
                     try {
-                        const response = await fetch(url);
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status} по ${url}`);
-                        }
-                        const blob = await response.blob();
-                        const parsed = await processDocFile(blob, dateString);
-                        console.log("  ✅ parsed:", parsed);
+                        const response = await fetch(fileUrl);
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-                        parsed.forEach(group => {
+                        const blob = await response.blob();
+                        let parsed = [];
+
+                        if (meta.mode === 'week') {
+                            console.log(`📅 Парсинг недели (mammoth): ${fileName}`);
+                            // processWeekDocFile теперь возвращает МАССИВ групп (благодаря новому parseWeekly.js)
+                            const parsedGroups = await processWeekDocFile(blob);
+
+                            // Применяем даты к ключам дней недели (MONDAY -> "2026-10-26")
+                            parsed = parsedGroups.map(group => ({
+                                ...group,
+                                schedule: mapDaysToDates(group.schedule, meta.range)
+                            }));
+                        } else {
+                            console.log(`📅 Парсинг дня (mammoth): ${fileName}`);
+                            // processDocFile возвращает МАССИВ групп
+                            parsed = await processDocFile(blob, meta.dateString);
+                        }
+
+                        // Слияние с общим списком
+                        parsed.forEach((group) => {
+                            if (!group.name) return;
+
                             if (!allParsedGroups[group.name]) {
                                 allParsedGroups[group.name] = {
                                     id: group.id,
                                     name: group.name,
-                                    schedule: { ...group.schedule }
+                                    schedule: {},
                                 };
-                            } else {
-                                Object.entries(group.schedule).forEach(([date, lessons]) => {
-                                    if (!allParsedGroups[group.name].schedule[date]) {
-                                        allParsedGroups[group.name].schedule[date] = [];
-                                    }
-                                    lessons.forEach(lesson => {
-                                        const exists = allParsedGroups[group.name].schedule[date].some(
-                                            l => l.time === lesson.time
-                                                && l.subject === lesson.subject
-                                                && l.teacher === lesson.teacher
-                                                && l.room === lesson.room
-                                        );
-                                        if (!exists) {
-                                            allParsedGroups[group.name].schedule[date].push(lesson);
-                                        }
-                                    });
-                                });
                             }
-                        });
+                            const target = allParsedGroups[group.name].schedule;
 
+                            // Слияние занятий (защита от дубликатов)
+                            Object.entries(group.schedule).forEach(([key, lessons]) => {
+                                if (!target[key]) target[key] = [];
+                                lessons.forEach((lesson) => {
+                                    const exists = target[key].some(
+                                        (l) =>
+                                            l.time === lesson.time &&
+                                            l.subject === lesson.subject &&
+                                            l.teacher === lesson.teacher
+                                    );
+                                    if (!exists) {
+                                        target[key].push(lesson);
+                                    }
+                                });
+                            });
+                        });
                     } catch (parseError) {
-                        console.error(`  ❌ Ошибка парсинга ${name}:`, parseError);
+                        console.error(`❌ Ошибка парсинга ${fileName}:`, parseError);
                     }
                 }
 
-                // Формируем список преподавателей
-                const teachersMap = {};
                 const groupsList = Object.values(allParsedGroups);
 
-                groupsList.forEach(group => {
-                    Object.entries(group.schedule).forEach(([date, lessons]) => {
-                        lessons.forEach(lesson => {
+                // Проверка, что мы спарсили
+                console.log('📊 Итоговые группы:', groupsList.map(g => ({
+                    name: g.name,
+                    keys: Object.keys(g.schedule),
+                })));
+
+                // Формируем список преподавателей
+                const teachersMap = {};
+                groupsList.forEach((group) => {
+                    Object.entries(group.schedule).forEach(([key, lessons]) => {
+                        lessons.forEach((lesson) => {
                             if (!lesson.teacher || lesson.teacher === 'Не указан' || lesson.teacher === 'Куратор') return;
 
                             const name = lesson.teacher;
-
                             if (!teachersMap[name]) {
-                                teachersMap[name] = {
-                                    id: name,
-                                    name: name,
-                                    schedule: {}
-                                };
+                                teachersMap[name] = { id: name, name, schedule: {} };
+                            }
+                            if (!teachersMap[name].schedule[key]) {
+                                teachersMap[name].schedule[key] = [];
                             }
 
-                            if (!teachersMap[name].schedule[date]) {
-                                teachersMap[name].schedule[date] = [];
-                            }
-
-                            const exists = teachersMap[name].schedule[date].some(
-                                l => l.time === lesson.time
-                                    && l.subject === lesson.subject
-                                    && l.group === group.name
+                            const exists = teachersMap[name].schedule[key].some(
+                                (l) => l.time === lesson.time && l.subject === lesson.subject && l.group === group.name
                             );
 
                             if (!exists) {
-                                teachersMap[name].schedule[date].push({
+                                teachersMap[name].schedule[key].push({
                                     time: lesson.time,
                                     subject: lesson.subject,
                                     group: group.name,
-                                    room: lesson.room
+                                    room: lesson.room,
                                 });
                             }
                         });
@@ -232,19 +236,18 @@ function App() {
 
                 setScheduleData({
                     groups: groupsList,
-                    teachers: Object.values(teachersMap)
+                    teachers: Object.values(teachersMap),
                 });
-
             } catch (err) {
                 console.error("Критическая ошибка:", err);
-                setError(err.message || "Не удалось загрузить расписание. Проверьте консоль.");
+                setError(err.message || "Не удалось загрузить расписание.");
             } finally {
                 setIsLoading(false);
             }
         };
 
         loadAllDocs();
-    }, [currentView, scheduleData.groups.length]);
+    }, [currentView]); // Зависимость только от вкладки
 
     // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
@@ -313,7 +316,6 @@ function App() {
 
     // --- РЕНДЕР ---
 
-    // Если есть ошибка парсинга, показываем её (но только если мы на страницах расписания)
     if (error && (currentView === 'groups' || currentView === 'teachers')) {
         return (
             <div className="App d-flex flex-column min-vh-100">
@@ -344,7 +346,6 @@ function App() {
             />
 
             <main className="flex-grow-1">
-                {/* ✅ Показываем спиннер, если идет загрузка и мы на страницах расписания */}
                 {isLoading && (currentView === 'groups' || currentView === 'teachers') ? (
                     <div className="d-flex justify-content-center align-items-center vh-100">
                         <div className="text-center">
@@ -355,15 +356,18 @@ function App() {
                         </div>
                     </div>
                 ) : (
-                    /* ✅ Рендерим контент */
                     <>
-                        {currentView === 'home' && <Home />}
+                        {currentView === 'home' && <Home onNavigate={handleNavigate} />}
                         {currentView === 'groups' && <GroupsPage data={scheduleData} />}
                         {currentView === 'teachers' && <TeachersPage data={scheduleData} />}
                         {currentView === 'support' && <Support />}
+                        {currentView === 'allnews' && <AllNews />}
+                        {currentView === 'NonExistent' && <NonExistent />}
                         {currentView === 'help' && <Help onNavigate={handleNavigate} />}
-                        {currentView === 'login' && !currentUser && <Login onLogin={handleLogin} />}
+                        {currentView === 'login' && !currentUser && <Login onLogin={handleLogin} onNavigate={handleNavigate} />}
                         {currentView === 'register' && !currentUser && <Register onRegister={handleRegister} />}
+                        {currentView === 'Reset' && <Reset onNavigate={handleNavigate} />}
+                        {currentView === 'scheduleAdmin' && currentUser && isAdmin() && <ScheduleAdmin />}
                         {currentView === 'dashboard' && currentUser && isAdmin() && <Dashboard />}
                         {currentView === 'userList' && currentUser && isAdmin() && (
                             <UserList

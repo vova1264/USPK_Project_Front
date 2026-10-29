@@ -1,3 +1,32 @@
+const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
+const DAY_LABELS = {
+    MONDAY: 'Понедельник',
+    TUESDAY: 'Вторник',
+    WEDNESDAY: 'Среда',
+    THURSDAY: 'Четверг',
+    FRIDAY: 'Пятница',
+    SATURDAY: 'Суббота',
+    SUNDAY: 'Воскресенье',
+};
+
+const isDayKey = (key) => DAY_ORDER.includes((key || '').toUpperCase());
+
+const formatDateKey = (date) => {
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) return date; // на всякий случай
+    const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const str = dateObj.toLocaleDateString('ru-RU', options);
+    return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+const sortLessons = (lessons) =>
+    [...lessons].sort((a, b) => {
+        const ta = a.time ? a.time.split('-')[0].trim() : '00:00';
+        const tb = b.time ? b.time.split('-')[0].trim() : '00:00';
+        return ta.localeCompare(tb);
+    });
+
 const ScheduleTable = ({ schedule, type }) => {
     if (!schedule || Object.keys(schedule).length === 0) {
         return (
@@ -8,30 +37,41 @@ const ScheduleTable = ({ schedule, type }) => {
         );
     }
 
-    // Сортируем даты по убыванию — свежие сверху
-    const sortedDates = Object.keys(schedule).sort((a, b) => b.localeCompare(a));
+    const allKeys = Object.keys(schedule);
+    const hasDayKeys = allKeys.some(isDayKey);
+    const hasDateKeys = allKeys.some((k) => !isDayKey(k));
+
+    // Порядок вывода:
+    // - если есть ключи-дни недели — сначала они в порядке Пн..Вс
+    // - затем даты (свежие сверху)
+    let orderedKeys;
+    if (hasDayKeys && !hasDateKeys) {
+        orderedKeys = DAY_ORDER.filter((d) => schedule[d]);
+    } else if (hasDayKeys && hasDateKeys) {
+        orderedKeys = [
+            ...DAY_ORDER.filter((d) => schedule[d]),
+            ...allKeys.filter((k) => !isDayKey(k)).sort((a, b) => b.localeCompare(a)),
+        ];
+    } else {
+        orderedKeys = allKeys.sort((a, b) => b.localeCompare(a));
+    }
 
     return (
         <div className="mt-2">
-            {sortedDates.map(date => {
-                const dateObj = new Date(date);
-                const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' };
-                const dateStr = dateObj.toLocaleDateString('ru-RU', options);
-                const formattedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-
-                // ✅ СОРТИРОВКА ПО ВРЕМЕНИ
-                // Извлекаем время начала из строки "08:00-09:30" и сортируем
-                const sortedLessons = [...schedule[date]].sort((a, b) => {
-                    const timeA = a.time ? a.time.split('-')[0].trim() : '00:00';
-                    const timeB = b.time ? b.time.split('-')[0].trim() : '00:00';
-                    return timeA.localeCompare(timeB);
-                });
+            {orderedKeys.map((key) => {
+                const header = isDayKey(key) ? DAY_LABELS[key.toUpperCase()] : formatDateKey(key);
+                const sortedLessons = sortLessons(schedule[key] || []);
 
                 return (
-                    <div key={date} className="mb-5 container">
+                    <div key={key} className="mb-5 container">
                         <h5 className="text-primary mb-3 border-bottom pb-2">
                             <i className="bi bi-calendar-event me-2"></i>
-                            {formattedDate}
+                            {header}
+                            {isDayKey(key) && (
+                                <span className="badge bg-secondary-subtle text-secondary ms-2 align-middle">
+                                    день недели
+                                </span>
+                            )}
                         </h5>
                         <div className="table-responsive">
                             <table
@@ -60,16 +100,14 @@ const ScheduleTable = ({ schedule, type }) => {
                                             <td className="text-center fw-bold">
                                                 {lesson.para && lesson.para !== '-'
                                                     ? lesson.para
-                                                    : <span className="text-muted">—</span>
-                                                }
+                                                    : <span className="text-muted">—</span>}
                                             </td>
                                             <td className="text-nowrap">{lesson.time}</td>
                                             <td>{lesson.subject}</td>
                                             <td>
                                                 {type === 'group'
                                                     ? <span className="badge bg-primary-subtle text-primary border border-primary-subtle">{lesson.teacher}</span>
-                                                    : <span className="badge bg-success-subtle text-success border border-success-subtle">{lesson.group}</span>
-                                                }
+                                                    : <span className="badge bg-success-subtle text-success border border-success-subtle">{lesson.group}</span>}
                                             </td>
                                             <td>{lesson.room}</td>
                                         </tr>

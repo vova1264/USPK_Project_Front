@@ -1,12 +1,13 @@
 ﻿import { useState } from 'react';
 import { authService } from '../../Services/authService';
 
-const Login = ({ onLogin }) => {
+// 1. Добавляем onNavigate в пропсы
+const Login = ({ onLogin, onNavigate }) => {
     const [formData, setFormData] = useState({
         email: '',
         password: ''
     });
-    const [consent, setConsent] = useState(false); // ✅ Добавлен state для чекбокса
+    const [consent, setConsent] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -24,29 +25,22 @@ const Login = ({ onLogin }) => {
 
         try {
             const response = await authService.login(formData.email, formData.password);
-            console.log('Login response:', response); // Отладка
+            console.log('Login response:', response);
             if (onLogin) {
                 onLogin();
             }
         } catch (error) {
             console.error('Login error:', error);
-            // ✅ Улучшенная обработка ошибок
             if (error.response?.status === 401) {
                 setError('Неверный логин или пароль');
             } else if (error.response?.data) {
-                // Если бэкенд возвращает строку
                 if (typeof error.response.data === 'string') {
                     setError(error.response.data);
-                }
-                // Если бэкенд возвращает объект с message
-                else if (error.response.data.message) {
+                } else if (error.response.data.message) {
                     setError(error.response.data.message);
-                }
-                // Если бэкенд возвращает объект с title (как в вашем случае)
-                else if (error.response.data.title) {
+                } else if (error.response.data.title) {
                     setError(error.response.data.title);
-                }
-                else {
+                } else {
                     setError('Ошибка при входе в систему');
                 }
             } else {
@@ -54,6 +48,14 @@ const Login = ({ onLogin }) => {
             }
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 2. Обработчик клика по ссылке
+    const handleForgotPassword = (e) => {
+        e.preventDefault();
+        if (onNavigate) {
+            onNavigate('Reset'); // Передаем название вкладки, которое используешь в App.jsx (Reset или forgotPassword)
         }
     };
 
@@ -93,13 +95,22 @@ const Login = ({ onLogin }) => {
                                                 required
                                             />
                                         </div>
+                                        <div className="text-end mt-1">
+                                            <a
+                                                href="#"
+                                                onClick={handleForgotPassword} // 3. Вешаем обработчик
+                                                className="text-decoration-none small text-primary"
+                                            >
+                                                Не помню пароль
+                                            </a>
+                                        </div>
                                         <div className="mb-3 form-check">
                                             <input
                                                 type="checkbox"
                                                 className="form-check-input"
                                                 id="consent"
                                                 checked={consent}
-                                                onChange={(e) => setConsent(e.target.checked)} // ✅ Исправлен checkbox
+                                                onChange={(e) => setConsent(e.target.checked)}
                                                 required
                                             />
                                             <label className="form-check-label text-coclor" htmlFor="consent">
@@ -115,7 +126,7 @@ const Login = ({ onLogin }) => {
                                             <button
                                                 className="btn btn-primary d-block w-100"
                                                 type="submit"
-                                                disabled={loading || !consent} // ✅ Блокируем если нет согласия
+                                                disabled={loading || !consent}
                                             >
                                                 {loading ? 'Выполняется вход...' : 'Выполнить вход'}
                                             </button>
