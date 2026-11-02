@@ -1,0 +1,77 @@
+.header-gradient {
+    background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%);
+}
+
+.schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.circle-card {
+    border-radius: 1.5rem;
+    border: 1px solid rgba(0, 0, 0, .04);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .08);
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+
+    .circle-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, .12);
+    }
+
+    .circle-card .program {
+        font-weight: 700;
+        font-size: 1.02rem;
+        line-height: 1.3;
+        padding-right: 1.6rem;
+    }
+
+.btn-remove {
+    position: absolute;
+    top: .55rem;
+    right: .6rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    border: none;
+    border-radius: 50%;
+    background: #f8f9fa;
+    color: #dc3545;
+    font-size: 1rem;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+
+    .btn-remove:hover {
+        background: #dc3545;
+        color: #fff;
+    }
+
+.badge-soft {
+    padding: .28em .7em;
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.badge-day {
+    background: #e7f1ff;
+    color: #0d6efd;
+}
+
+.badge-time {
+    background: #eafaf1;
+    color: #198754;
+}
+
+.badge-room {
+    background: #fff4e6;
+    color: #fd7e14;
+}

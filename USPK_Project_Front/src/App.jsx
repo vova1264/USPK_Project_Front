@@ -14,6 +14,7 @@ import NonExistent from './Views/Shared/NonExistent';
 import GroupsPage from './Views/Schedule/GroupsPage';
 import TeachersPage from './Views/Schedule/TeachersPage';
 import ScheduleAdmin from './Views/Schedule/ScheduleAdmin';
+import ClubDopPage from './Views/Club/ClubDopPage';
 import { processDocFile, processWeekDocFile } from './utils/parser';
 import { findDocFiles, parseDocMeta, normalizeDocUrl, mapDaysToDates } from './utils/loadDocs';
 import { authService } from './Services/authService';
@@ -139,7 +140,13 @@ function App() {
                     const meta = parseDocMeta(fileName);
 
                     try {
-                        const response = await fetch(fileUrl);
+                        const response = await fetch(`${fileUrl}?t=${Date.now()}`, {
+                            cache: 'no-store',
+                            headers: {
+                                'Cache-Control': 'no-cache',
+                                'Pragma': 'no-cache',
+                            },
+                        });
                         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                         const blob = await response.blob();
@@ -364,6 +371,7 @@ function App() {
                         {currentView === 'allnews' && <AllNews />}
                         {currentView === 'NonExistent' && <NonExistent />}
                         {currentView === 'help' && <Help onNavigate={handleNavigate} />}
+                        {currentView === 'club' && <ClubDopPage isAdmin={isAdmin()} />}
                         {currentView === 'login' && !currentUser && <Login onLogin={handleLogin} onNavigate={handleNavigate} />}
                         {currentView === 'register' && !currentUser && <Register onRegister={handleRegister} />}
                         {currentView === 'Reset' && <Reset onNavigate={handleNavigate} />}

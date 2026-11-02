@@ -1,5 +1,44 @@
 // loadDocs.js
 
+// export const mapDaysToDates = (schedule, startRangeString) => {
+//     if (!startRangeString) return schedule;
+
+//     // Извлекаем дату начала из "26.10.26-31.10.26"
+//     const match = startRangeString.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})/);
+//     if (!match) return schedule;
+
+//     let [, d, m, y] = match;
+//     if (y.length === 2) y = `20${y}`;
+
+//     const baseDate = new Date(`${y}-${m}-${d}T12:00:00`);
+//     if (isNaN(baseDate.getTime())) return schedule;
+
+//     const dayIndexMap = {
+//         'MONDAY': 0, 'TUESDAY': 1, 'WEDNESDAY': 2,
+//         'THURSDAY': 3, 'FRIDAY': 4, 'SATURDAY': 5, 'SUNDAY': 6
+//     };
+
+//     const newSchedule = {};
+
+//     Object.entries(schedule).forEach(([key, lessons]) => {
+//         const dayIndex = dayIndexMap[key];
+//         if (dayIndex !== undefined) {
+//             const realDate = new Date(baseDate);
+//             realDate.setDate(realDate.getDate() + dayIndex);
+
+//             const year = realDate.getFullYear();
+//             const month = String(realDate.getMonth() + 1).padStart(2, '0');
+//             const date = String(realDate.getDate()).padStart(2, '0');
+
+//             newSchedule[`${year}-${month}-${date}`] = lessons;
+//         } else {
+//             newSchedule[key] = lessons;
+//         }
+//     });
+
+//     return newSchedule;
+// };
+
 export const mapDaysToDates = (schedule, startRangeString) => {
     if (!startRangeString) return schedule;
 
@@ -13,18 +52,32 @@ export const mapDaysToDates = (schedule, startRangeString) => {
     const baseDate = new Date(`${y}-${m}-${d}T12:00:00`);
     if (isNaN(baseDate.getTime())) return schedule;
 
-    const dayIndexMap = {
-        'MONDAY': 0, 'TUESDAY': 1, 'WEDNESDAY': 2,
-        'THURSDAY': 3, 'FRIDAY': 4, 'SATURDAY': 5, 'SUNDAY': 6
-    };
+    // JS: 0=вс, 1=пн, ... 6=сб
+    const JS_DAY_TO_KEY = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
+    // Определяем, с какого дня недели начинается файл
+    const startJsDay = baseDate.getDay(); // 0..6
+    const startDayKey = JS_DAY_TO_KEY[startJsDay]; // 'TUESDAY' и т.п.
+
+    // Сдвиг: сколько дней от начала файла до каждого ключа дня недели.
+    // Например, если файл начинается со вторника:
+    //   TUESDAY   -> 0
+    //   WEDNESDAY -> 1
+    //   ...
+    //   MONDAY    -> 6
+    const dayOffsetMap = {};
+    const startOrderIdx = DAY_ORDER.indexOf(startDayKey);
+    DAY_ORDER.forEach((dayKey, idx) => {
+        dayOffsetMap[dayKey] = (idx - startOrderIdx + 7) % 7;
+    });
 
     const newSchedule = {};
 
     Object.entries(schedule).forEach(([key, lessons]) => {
-        const dayIndex = dayIndexMap[key];
-        if (dayIndex !== undefined) {
+        if (dayOffsetMap[key] !== undefined) {
             const realDate = new Date(baseDate);
-            realDate.setDate(realDate.getDate() + dayIndex);
+            realDate.setDate(realDate.getDate() + dayOffsetMap[key]);
 
             const year = realDate.getFullYear();
             const month = String(realDate.getMonth() + 1).padStart(2, '0');
@@ -39,8 +92,20 @@ export const mapDaysToDates = (schedule, startRangeString) => {
     return newSchedule;
 };
 
+// export const findDocFiles = async () => {
+//     const res = await fetch('/docs/docs.json');
+//     if (!res.ok) throw new Error(`Не удалось загрузить /docs/docs.json (${res.status})`);
+//     return await res.json();
+// };
+
 export const findDocFiles = async () => {
-    const res = await fetch('/docs/docs.json');
+    const res = await fetch(`/docs/docs.json?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+        },
+    });
     if (!res.ok) throw new Error(`Не удалось загрузить /docs/docs.json (${res.status})`);
     return await res.json();
 };

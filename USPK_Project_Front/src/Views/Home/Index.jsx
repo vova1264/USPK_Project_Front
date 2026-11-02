@@ -146,7 +146,7 @@ const Home = ({ onNavigate }) => {
                         <div className="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="200">
                             <a
                                 href="#"
-                                onClick={(e) => { e.preventDefault(); onNavigate('NonExistent'); }}
+                                onClick={(e) => { e.preventDefault(); onNavigate('club'); }}
                                 className="card h-100 border-0 shadow-sm rounded-4 text-decoration-none text-dark portal-card"
                             >
                                 <div className="card-body p-4 d-flex flex-column">

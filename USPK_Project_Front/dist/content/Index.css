@@ -1,0 +1,91 @@
+/* Предотвращаем горизонтальную прокрутку на мобильных */
+body, html {
+    overflow-x: hidden;
+}
+
+/* Перенос длинных слов */
+h1, h2, h3, p, a {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* =========================================
+   ГЛОБУС
+   ========================================= */
+.uspc-globe-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 420px; /* десктоп */
+}
+
+.uspc-globe-canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100%;
+    transform: scale(1.1);
+}
+
+/* Скрываем ВСЮ колонку с глобусом на планшетах и телефонах */
+@media (max-width: 991.98px) {
+    .hero-globe-col {
+        display: none !important;
+    }
+}
+
+/* =========================================
+   КНОПКИ НА МОБИЛЬНЫХ
+   ========================================= */
+@media (max-width: 576px) {
+    .btn-lg {
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
+    }
+
+    .d-flex.gap-3 {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* =========================================
+   КАРТОЧКИ ПОРТАЛА
+   ========================================= */
+.card-illu img {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    background: #eef1f6;
+}
+
+.portal-card {
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+    .portal-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 .5rem 1.5rem rgba(13, 110, 253, .15) !important;
+    }
+
+/* =========================================
+   ТОЧКИ-ИНДИКАТОРЫ ГЕРОЯ
+   ========================================= */
+.hero-dots {
+    display: flex;
+    gap: 8px;
+}
+
+    .hero-dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #dee2e6;
+        display: inline-block;
+    }
+
+        .hero-dots span.active {
+            background: #0d6efd;
+            width: 28px;
+            border-radius: 6px;
+        }

@@ -6,7 +6,6 @@
     var BLUE = '#087CFF', CYAN = '#00D9FF';
     var MASK = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//7//wAAAAAAAAAAAAAAAAAAAAAAB///////AA/wDwAAHgAAAAAAAAAAAHf//////4AB/gAAAAD+AAAAAAAAAAD/v/8////4AA/gAA+ADf4AGAAAAAAAH///4A///4AAAAAH4Af/8AP8AAAAAAH///+Af//wAAAAAeD////+H4AAwH/gf////4P//wAAD8AeH///////wRw//////9/4P//AAAP/nP//////////+///////3/H/wuAAf//////////////////////+H/B/AB//////////////Df/////7/8D8A8AP//////////////A//////gf8B4AAAP/////////////8A/8////wP+AAAAGP5///////////fQAHwB///8H/AAAAPD//////////8B8AAeAB////v/wAAAfD//////////9B8AAAAB//////4AAAfv///////////B4AAAAAf/////4AAAX////////////AwAAAAAf/////8AAAH////////////gAAAAAAH/////8AAAH////////////AAAAAAAH/////gAAAB//7////////7gAAAAAAH////8AAAAf//7ff//////3gAAAAAAH////wAAAAfy/////////+HAAAAAAAD///+AAAAAfi///v/////+GAAAAAAAD///+AAAAAf/7////////+OAAAAAAAB///+AAAAAP/Rz///////n+AAAAAAAA///4EAAAAf/zB///////jwAAAAAAAAf//wAAAAAf//////////hAAAAAAAAAP/9wAAAAB///////////wAAAAAAAAAP/A8AAAAD///////////gAAAAAAAAAH/AcAAAAD///////////gAAAAACAAAD/B8AAAAH//////H///+gAAAAADgAAAfPeAAAAH//////B///wgAAAAABgAAAf+P8AAAH////v+A/j/wwAAAAAAAAAAP+EsAAAH/////+A/B/hwAAAAAAAAAABfgAAAAH/////4A+B/hwAAAAAAAAAAAPgwAAAH/////wAeAfg4AAAAAAAAAAADj/AAAH/////wAcAXh4AAAAAAAAAAAB//gAAD/////wAOAbDcAAAAAAAAAAAAf/4AAB/////gAOAcC8AAAAAAAAAAAAH/+AAAfv///gACB8HIAAAAAAAAAAAAP/+AAAAD///AAAA8/EAAAAAAAAAAAAf//AAAAD//+AAAAe/+AAAAAAAAAAAAf//wAAAD//8AAAAO/38AAAAAAAAAAAf//+AAAD//4AAAAPf//mAAAAAAAAAAf///gAAB//wAAAAHHw/vAAAAAAAAAAf///gAAA//wAAAAD8AX9wAAAAAAAAAP///gAAA//wAAAAAf8PcYAAAAAAAAAP///AAAA//4AAAAAA57cMAAAAAAAAAH///AAAA//5wAAAAAH7AAAAAAAAAAAH//+AAAB//7wAAAAAP7gBAgAAAAAAAB//+AAAB///wAAAAAf/wBDAAAAAAAAA//+AAAB//jgAAAAB//4ADAAAAAAAAA//8AAAA//HgAAAAH//4DAAAAAAAAAA//8AAAAf/HAAAAAP//8BAAAAAAAAAA//gAAAAf/HAAAAAP//+AAAAAAAAAAA//AAAAAf+AAAAAAP//+AAAAAAAAAAA//AAAAAPmAAAAAAH//+AAAAAAAAAAA/+AAAAAPkAAAAAAH//+AAAAAAAAAAA/8AAAAAP4AAAAAAH8/+AAAAAAAAAAB/8AAAAAGAAAAAAAHQf8AMAAAAAAAAB/wAAAAAAAAAAAAAAAH8APAAAAAAAAB/wAAAAAAAAAAAAAAADwAPAAAAAAAAD+AAAAAAAAAAAAAAAAA4AeAAAAAAAAD+AAAAAAAAAAAAAAAAA4A4AAAAAAAAD8AAAAAAAAAAAAAAAAAABwAAAAAAAAD8AAAAAAAAAAAAAAAAAABgAAAAAAAAD8AAAAAAAAAADAAAAAAAAAAAAAAAAADxwAAAAAAAAAAAAAAAAAAAAAAAAAAAD5gAAAAAAAAAAAAAAAAAAAAAAAAAAAB8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAHgAAAAAAAAOAAAGIAQAAAAAAAAAAAAOAAAAAAAAD/+D/////wAAAAAAAAAAA+AAAAAEsH//+///////wAAAAAAAPAD/AAAA///////////////wAAAAPkP///AAAH///////////////wAAD///////AAAf///////////////AAD///////wAgf///////////////+AAP//////+BD4/////////////////AAB////////v/////////////////4ABAf//////////////////////////g//////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'; // 180x90 бит суши (шаг 2°), base64
 
-
     var land = (function () {
         var b = atob(MASK), bits = new Uint8Array(180 * 90);
         for (var i = 0; i < bits.length; i++) bits[i] = (b.charCodeAt(i >> 3) >> (7 - (i & 7))) & 1;
@@ -44,12 +43,12 @@
         var W = 2048, H = 1024, c = document.createElement('canvas');
         c.width = W; c.height = H;
         var g = c.getContext('2d');
-        g.font = 'bold 40px Arial, Helvetica, sans-serif';
+        g.font = 'bold 32px Arial, Helvetica, sans-serif';
         g.textBaseline = 'middle'; g.textAlign = 'left';
         var m = g.measureText(TEXT).width, row = 0;
         var lv = ['#ffffff', '#b8b8b8', '#dcdcdc', '#8c8c8c', '#f0f0f0', '#a4a4a4']; // яркость; цвет задаёт шейдер
-        for (var lat = -76; lat <= 76; lat += 8, row++) {
-            var n = Math.max(2, Math.round(6 * Math.cos(lat * Math.PI / 180)));
+        for (var lat = -80; lat <= 80; lat += 5, row++) {
+            var n = Math.max(2, Math.round(8 * Math.cos(lat * Math.PI / 180)));
             var seg = W / n, y = (90 - lat) / 180 * H, off = (row % 2) * seg / 2;
             var k = seg * 0.97 / m;
             for (var i = 0; i < n; i++) {
@@ -77,16 +76,20 @@
     }
 
     function ribbonTexture() {
-        var W = 4096, H = 256, c = document.createElement('canvas');
+        var W = 4096, H = 180, c = document.createElement('canvas');
         c.width = W; c.height = H;
         var g = c.getContext('2d');
         g.fillStyle = 'rgba(8,124,255,0.14)'; g.fillRect(0, 6, W, H - 12);
         g.fillStyle = CYAN; g.fillRect(0, 6, W, 6); g.fillRect(0, H - 12, W, 6);
-        var s = TEXT + ' • ', reps = 3; g.font = 'bold 132px Arial, Helvetica, sans-serif';
+        var s = TEXT + ' • ', reps = 4; g.font = 'bold 92px Arial, Helvetica, sans-serif';
         g.textBaseline = 'middle'; g.textAlign = 'left';
         var m = g.measureText(s).width, seg = W / reps;
-        g.shadowColor = CYAN; g.shadowBlur = 24; g.fillStyle = '#E6FBFF';
-        for (var i = 0; i < reps; i++) { g.save(); g.translate(i * seg, H / 2 + 2); g.scale(seg / m, 1); g.fillText(s, 0, 0); g.restore(); }
+        g.fillStyle = '#E6FBFF';
+        for (var i = 0; i < reps; i++) {
+            g.save(); g.translate(i * seg, H / 2 + 2); g.scale(seg / m, 1);
+            g.shadowBlur = 0; g.lineJoin = 'round'; g.lineWidth = 6; g.strokeStyle = 'rgba(4,28,100,0.55)'; g.strokeText(s, 0, 0); // лёгкая тёмная кромка: буквы видны и на светлом фоне
+            g.shadowColor = CYAN; g.shadowBlur = 18; g.fillText(s, 0, 0); g.restore();
+        }
         var t = new THREE.CanvasTexture(c);
         t.anisotropy = 4; t.premultiplyAlpha = true; return t;
     }
@@ -135,15 +138,14 @@
         var sg = new THREE.SphereGeometry(1.012, 64, 48);
         spin.add(new THREE.Mesh(sg, sm)); disposables.push(tt, tl, sm, sg);
 
-        var RH = 0.42, RD = 0.12, RT = Math.sqrt(1 - Math.pow(RD + RH / 2, 2)) + 0.04, RB = Math.sqrt(1 - Math.pow(RD - RH / 2, 2)) + 0.04;
-        var rt = ribbonTexture(), rg = new THREE.CylinderGeometry(RT, RB, RH, 128, 1, true);
+        var RH = 0.36, RR = 1.34; // высота и радиус кольца (радиус шара = 1)
+        var rt = ribbonTexture(), rg = new THREE.CylinderGeometry(RR, RR, RH, 192, 1, true);
         var rf = new THREE.MeshBasicMaterial({ map: rt, transparent: true, depthWrite: false, side: THREE.FrontSide });
         var rb = new THREE.MeshBasicMaterial({ map: rt, transparent: true, depthWrite: false, side: THREE.BackSide, opacity: 0.35 });
         var mb = new THREE.Mesh(rg, rb), mf = new THREE.Mesh(rg, rf);
         mb.renderOrder = 1; mf.renderOrder = 3;
         var rib = new THREE.Group(), tilt = new THREE.Group();
-        rib.add(mf); tilt.add(rib); tilt.rotation.set(0.25, 0, 0.5);
-        tilt.position.set(0, 1, 0).applyEuler(tilt.rotation).multiplyScalar(RD); // RD — подъём ленты над экватором
+        rib.add(mb, mf); tilt.add(rib); tilt.rotation.set(0.3, 0, 0.55);
         root.add(tilt); disposables.push(rt, rg, rf, rb);
 
         var hg = new THREE.SphereGeometry(1.1, 48, 32);

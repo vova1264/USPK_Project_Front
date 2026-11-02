@@ -37,7 +37,14 @@ const ScheduleTable = ({ schedule, type }) => {
         );
     }
 
-    const allKeys = Object.keys(schedule);
+    // Отфильтровываем воскресенье (в нём не учатся)
+    const isSunday = (key) => {
+        if (isDayKey(key)) return key.toUpperCase() === 'SUNDAY';
+        const dt = new Date(key);
+        return !isNaN(dt.getTime()) && dt.getDay() === 0;
+    };
+
+    const allKeys = Object.keys(schedule).filter((k) => !isSunday(k));
     const hasDayKeys = allKeys.some(isDayKey);
     const hasDateKeys = allKeys.some((k) => !isDayKey(k));
 
@@ -61,6 +68,7 @@ const ScheduleTable = ({ schedule, type }) => {
             {orderedKeys.map((key) => {
                 const header = isDayKey(key) ? DAY_LABELS[key.toUpperCase()] : formatDateKey(key);
                 const sortedLessons = sortLessons(schedule[key] || []);
+                if (sortedLessons.length === 0) return null;
 
                 return (
                     <div key={key} className="mb-5 container">

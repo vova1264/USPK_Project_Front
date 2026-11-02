@@ -56,6 +56,7 @@ const Navbar = ({ currentUser, onLogout, onNavigate, isAdmin }) => {
                             </a>
                             <ul className="dropdown-menu" aria-labelledby="studentDropdown">
                                 <li><a className="dropdown-item" href="#" onClick={(e) => handleNavClick('groups', e)}>Расписание</a></li>
+                                <li><a className="dropdown-item" href="#" onClick={(e) => handleNavClick('club', e)}>Расписание кружков</a></li>
                                 <li><a className="dropdown-item" href="#" onClick={(e) => handleNavClick('NonExistent', e)}>Образовательная среда</a></li>
                                 <li><a className="dropdown-item" target="_blank" href="https://spo.rso23.ru/security/#/login">Сетевой город</a></li>
                             </ul>
@@ -66,6 +67,7 @@ const Navbar = ({ currentUser, onLogout, onNavigate, isAdmin }) => {
                             </a>
                             <ul className="dropdown-menu" aria-labelledby="teacherDropdown">
                                 <li><a className="dropdown-item" href="#" onClick={(e) => handleNavClick('teachers', e)}>Расписание</a></li>
+                                <li><a className="dropdown-item" href="#" onClick={(e) => handleNavClick('club', e)}>Расписание кружков</a></li>
                                 <li><a className="dropdown-item" href="#" onClick={(e) => handleNavClick('NonExistent', e)}>Учебно-методический портал</a></li>
                                 <li><a className="dropdown-item" target="_blank" href="https://spo.rso23.ru/security/#/login">Сетевой город</a></li>
                             </ul>

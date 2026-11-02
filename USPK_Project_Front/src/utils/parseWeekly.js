@@ -33,23 +33,26 @@ export const parseWeeklyHtml = (html) => {
         let groupHeaders = [];
         let headerRowIndex = -1;
 
-        // 1. Ищем строку с названиями групп
+        // 1. Ищем заголовки групп и их логические индексы
         rows.each((rowIndex, row) => {
             if (groupHeaders.length > 0) return;
             const cells = $(row).find('td, th');
             const candidates = [];
+            let logicalIndex = 0;
 
             cells.each((cellIndex, cell) => {
+                const colspan = parseInt($(cell).attr('colspan') || 1, 10);
                 const text = $(cell).text().trim().replace(/\*/g, '').replace(/\s+/g, ' ');
-                if (text && text.length <= 20) {
+
+                if (text && text.length <= 25) {
                     if (GROUP_CODE_PATTERN.test(text) || PURE_NUMBER_PATTERN.test(text)) {
-                        candidates.push({ realIndex: cellIndex, name: text });
+                        candidates.push({ colIndex: logicalIndex, name: text });
                     }
                 }
+                logicalIndex += colspan;
             });
 
-            // Строка считается заголовком, если найдено 2+ группы
-            if (candidates.length >= 2) {
+            if (candidates.length > 0) {
                 groupHeaders = candidates;
                 headerRowIndex = rowIndex;
                 return false;
@@ -58,11 +61,9 @@ export const parseWeeklyHtml = (html) => {
 
         if (groupHeaders.length === 0) return;
 
-        // 2. Парсим занятия
         let currentDay = null;
 
         rows.each((rowIndex, row) => {
-            // Проверяем дни недели в заголовке (если они там есть)
             if (rowIndex <= headerRowIndex) {
                 const dayKey = detectDayKey($(row).text());
                 if (dayKey) currentDay = dayKey;
@@ -70,79 +71,87 @@ export const parseWeeklyHtml = (html) => {
             }
 
             const cells = $(row).find('td, th');
-
-            // Проверяем день недели в текущей строке
             const rowText = cells.map((i, el) => $(el).text().trim()).get().filter(Boolean).join(' ');
             const dayKey = detectDayKey(rowText);
             if (dayKey) {
                 currentDay = dayKey;
-                if (cells.length <= 1) return; // Строка-разделитель
+                if (cells.length <= 1) return;
             }
 
             if (!currentDay) return;
 
-            // Ищем время
-            const timeCell = cells.filter((i, el) => /\d{1,2}:\d{2}\s*[-–]\s*\d{1,2}:\d{2}/.test($(el).text())).first();
-            if (timeCell.length === 0) return;
+            // 2. Строим жесткую сетку ячеек
+            const cellsGrid = [];
+            let currentLogicalIndex = 0;
 
-            const timeText = timeCell.text().trim();
-
-            // Ищем номер пары
-            let paraNum = null;
             cells.each((i, el) => {
-                if (paraNum) return;
-                const match = $(el).text().trim().match(/^(½\s*)?(\d+)(\s*пара)?$/i);
-                if (match && match[2]) paraNum = match[1] ? `${match[1].trim()} ${match[2]}` : match[2];
+                const colspan = parseInt($(el).attr('colspan') || 1, 10);
+                const text = $(el).text().trim();
+                const html = $(el).html();
+
+                for (let c = 0; c < colspan; c++) {
+                    cellsGrid[currentLogicalIndex + c] = { text, html };
+                }
+                currentLogicalIndex += colspan;
             });
 
-            if (!paraNum) {
-                const startTime = timeText.split('-')[0].trim();
-                const timeToParaMap = {
-                    '08:00': '1', '08:55': '1', '09:40': '2', '11:05': '2',
-                    '11:30': '3', '11:50': '3', '13:30': '7', '14:20': '½ 1',
-                    '15:05': '½ 2', '16:00': '½ 2', '16:40': '6', '12:35': '½ 3',
-                    '12:45': '5', '13:10': '1', '13:35': '6', '14:50': '2',
-                    '17:50': '3', '19:00': '4', '08:30': '1', '09:10': '2'
-                };
-                paraNum = timeToParaMap[startTime] || '—';
-            }
+            // 3. Проходимся по группам
+            groupHeaders.forEach((group) => {
+                const paraCell = cellsGrid[group.colIndex];
+                const timeCell = cellsGrid[group.colIndex + 1];
+                const subjectCell = cellsGrid[group.colIndex + 2];
 
-            // === ГЛАВНОЕ ИСПРАВЛЕНИЕ ===
-            // Ищем ячейку группы НЕ по индексу, а по её реальному расположению,
-            // учитывая, что в HTML могут отсутствовать пустые ячейки (mammoth их вырезает).
-            // === НАДЁЖНЫЙ ПОИСК ЯЧЕЙКИ ===
-            groupHeaders.forEach((group, gIdx) => {
-                // 1. Собираем все "полезные" ячейки (исключаем номер пары, время и день недели)
-                const dataCells = cells.filter((i, el) => {
-                    const t = $(el).text().trim();
-                    if (!t) return false;
-                    if (/^\d{1,2}:\d{2}\s*[-–]\s*\d{1,2}:\d{2}$/.test(t)) return false; // время
-                    if (/^(½\s*)?\d+(\s*пара)?$/i.test(t)) return false; // номер пары
-                    if (detectDayKey(t)) return false; // день недели
-                    return true;
-                });
+                // Если времени нет — это либо пустая строка, либо не относится к паре
+                if (!timeCell || !timeCell.text) return;
 
-                // 2. Берем ячейку по порядку (gIdx — порядковый номер группы в заголовке)
-                const targetCell = dataCells.eq(gIdx);
+                const timeText = timeCell.text;
+                if (!/\d{1,2}:\d{2}\s*[-–]\s*\d{1,2}:\d{2}/.test(timeText)) return;
 
-                if (!targetCell || targetCell.length === 0) return;
+                // Если времени есть, но нет предмета (из-за rowspan) — пропускаем, чтобы не дублировать
+                if (!subjectCell || !subjectCell.text || /^[-—_\s]+$/.test(subjectCell.text)) return;
 
-                const content = targetCell.html();
-                if (!content || content.trim().length === 0) return;
+                // Парсим номер пары
+                let paraNum = '—';
+                if (paraCell && paraCell.text) {
+                    const match = paraCell.text.match(/^(½\s*)?([1-8])(\s*пара)?$/i);
+                    if (match) {
+                        paraNum = match[1] ? `${match[1].trim()} ${match[2]}` : match[2];
+                    } else {
+                        paraNum = paraCell.text.trim(); // Берем как есть (например, "7" или "1 пара")
+                    }
+                }
 
-                let cleanContent = content
+                if (paraNum === '—') {
+                    const startTime = timeText.split('-')[0].replace(/[–—]/g, '-').trim();
+                    const timeToParaMap = {
+                        '08:00': '1', '08:55': '1', '09:40': '2', '11:05': '2',
+                        '11:30': '3', '11:50': '3', '13:30': '7', '14:20': '½ 1',
+                        '15:05': '½ 2', '16:00': '½ 2', '16:40': '6', '12:35': '½ 3',
+                        '12:45': '5', '13:10': '1', '13:35': '6', '14:50': '2',
+                        '17:50': '3', '19:00': '4', '08:30': '1', '09:10': '2'
+                    };
+                    paraNum = timeToParaMap[startTime] || '—';
+                }
+
+                // Парсим предмет
+                let cleanContent = (subjectCell.html || '')
                     .replace(/<br\s*\/?>/gi, '\n')
                     .replace(/<[^>]+>/g, ' ')
                     .replace(/\s+/g, ' ')
                     .trim();
 
-                // Отсеиваем мусор
-                if (!cleanContent || /^[-—_\s]+$/.test(cleanContent)) return;
-                if (/^(½\s*)?\d+(\s*пара)?$/i.test(cleanContent)) return;
-                if (/^\d{1,2}:\d{2}/.test(cleanContent)) return;
-                if (/^(ПОНЕДЕЛЬНИК|ВТОРНИК|СРЕДА|ЧЕТВЕРГ|ПЯТНИЦА|СУББОТА|ВОСКРЕСЕНЬЕ)$/i.test(cleanContent)) return;
-                const roomMatch = cleanContent.match(/(а\.\d+(?:\.\d+)?|а\/з|спорт\.зал|каб\.[^\s]+)/i);
-                const room = roomMatch ? roomMatch[0] : '';
+                // Если после очистки осталась только цифра или номер пары, пропускаем
+                if (/^(½\s*)?([1-8])(\s*пара)?$/i.test(cleanContent)) return;
+
+                const roomMatch = cleanContent.match(/(?:\b|\s)(а\.\d+(?:\.\d+)?|а\/з|спорт\.зал|каб\.[^\s]+)(?:\b|\s|$)/i);
+                let room = roomMatch ? roomMatch[1] : '';
+
+                if (room && room.length <= 3 && !isNaN(room.replace('а.', ''))) {
+                    const index = cleanContent.indexOf(room);
+                    if (index > 0 && cleanContent[index - 1].match(/[А-ЯЁA-Z]/i)) {
+                        room = '';
+                    }
+                }
 
                 const teacherMatch = cleanContent.match(/\(([^)]+)\)/);
                 const teacher = teacherMatch ? teacherMatch[1] : '';
@@ -153,6 +162,10 @@ export const parseWeeklyHtml = (html) => {
                     .replace(/\(замена\)/gi, '')
                     .replace(/^[\s.,:;-]+|[\s.,:;-]+$/g, '')
                     .trim();
+
+                if (!teacher && subject.includes('(')) {
+                    subject = subject.split('(')[0].trim();
+                }
 
                 if (!subject) return;
 
@@ -186,12 +199,16 @@ export const parseWeeklyHtml = (html) => {
         });
     });
 
-    // Сортировка
+    // Сортировка по времени
     Object.values(groupsData).forEach(group => {
         const sorted = {};
         DAY_ORDER.forEach(day => {
             if (group.schedule[day]) {
-                group.schedule[day].sort((a, b) => a.time.localeCompare(b.time));
+                group.schedule[day].sort((a, b) => {
+                    const timeA = a.time.split('-')[0].trim();
+                    const timeB = b.time.split('-')[0].trim();
+                    return timeA.localeCompare(timeB);
+                });
                 sorted[day] = group.schedule[day];
             }
         });
